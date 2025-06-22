@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV Column Remover</title>
+    <title>X-Way Admixture Simulation</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 900px;
             margin: auto;
             padding: 20px;
         }
-        textarea {
+        textarea, select, input[type="number"] {
             width: 100%;
-            height: 200px;
             margin-bottom: 20px;
             padding: 10px;
             font-family: monospace;
@@ -24,9 +23,109 @@
             font-size: 16px;
             cursor: pointer;
         }
+        .options {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .options > div {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
-  
+    <h1>X-Way Admixture Simulation</h1>
+    <p>Paste your CSV data below. Then select parameters and run the simulation.</p>
+
+    <h3>Input CSV</h3>
+    <textarea id="csvInput" placeholder="Paste CSV with 'Population' column and numeric features..."></textarea>
+
+    <div class="options">
+        <div>
+            <label for="targetSelect">Target Population</label>
+            <input type="text" id="targetSelect" placeholder="e.g. Spanish_Barcelones">
+        </div>
+        <div>
+            <label for="numMixtures">Number of Mixtures</label>
+            <input type="number" id="numMixtures" value="2" min="1" max="5">
+        </div>
+        <div>
+            <label for="topN">Top N Matches</label>
+            <input type="number" id="topN" value="10" min="1">
+        </div>
+    </div>
+
+    <button onclick="runAdmixture()">Run Admixture</button>
+
+    <h3>Output</h3>
+    <textarea id="outputBox" readonly placeholder="Simulation output will appear here..."></textarea>
+
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+    <script>
+        async function runAdmixture() {
+            const csv = document.getElementById('csvInput').value;
+            const target = document.getElementById('targetSelect').value.trim();
+            const numMixtures = parseInt(document.getElementById('numMixtures').value);
+            const topN = parseInt(document.getElementById('topN').value);
+
+            const parsed = Papa.parse(csv, { header: true, dynamicTyping: true });
+            if (parsed.errors.length) {
+                alert("CSV parsing failed: " + parsed.errors[0].message);
+                return;
+            }
+
+            const data = parsed.data.filter(row => row.Population && Object.values(row).every(v => v !== null && v !== ''));
+            const headers = parsed.meta.fields.filter(f => f !== 'Population');
+
+            const targetRow = data.find(r => r.Population === target);
+            if (!targetRow) {
+                alert("Target population not found in data.");
+                return;
+            }
+
+            const targetVec = headers.map(h => parseFloat(targetRow[h]));
+
+            function distance(v1, v2) {
+                return Math.sqrt(v1.reduce((acc, val, i) => acc + (val - v2[i]) ** 2, 0));
+            }
+
+            function mix(rows, alphas) {
+                const mix = Array(rows[0].length).fill(0);
+                rows.forEach((row, i) => row.forEach((val, j) => mix[j] += val * alphas[i]));
+                return mix;
+            }
+
+            const others = data.filter(r => r.Population !== target);
+            const vectors = others.map(r => headers.map(h => parseFloat(r[h])));
+
+            let topMatches = [];
+            for (let i = 0; i < 10000; i++) {
+                const indices = [];
+                while (indices.length < numMixtures) {
+                    const idx = Math.floor(Math.random() * others.length);
+                    if (!indices.includes(idx)) indices.push(idx);
+                }
+                const selectedVecs = indices.map(idx => vectors[idx]);
+                const alphas = Array(numMixtures).fill().map(() => Math.random());
+                const sum = alphas.reduce((a, b) => a + b, 0);
+                for (let j = 0; j < alphas.length; j++) alphas[j] /= sum;
+
+                const combo = mix(selectedVecs, alphas);
+                const dist = distance(targetVec, combo);
+                const names = indices.map(idx => others[idx].Population);
+                topMatches.push({ dist, names, alphas });
+                topMatches.sort((a, b) => a.dist - b.dist);
+                if (topMatches.length > topN) topMatches.length = topN;
+            }
+
+            let output = `Top ${topN} admixture matches for ${target} with ${numMixtures}-way mixtures:\n`;
+            topMatches.forEach((m, i) => {
+                const parts = m.names.map((n, j) => `${(m.alphas[j] * 100).toFixed(2)}% of '${n}'`);
+                output += `${i + 1}: ${parts.join(', ')} → distance: ${m.dist.toFixed(4)}\n`;
+            });
+
+            document.getElementById('outputBox').value = output;
+        }
+    </script>
 </body>
 </html>
