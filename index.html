@@ -20,6 +20,12 @@
         #csvInput {
             height: 400px;
         }
+        #targetInput {
+            height: 30px;
+            width: 100%;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
         #outputBox {
             height: 300px;
         }
@@ -50,8 +56,8 @@
 
     <div class="options">
         <div>
-            <label for="targetSelect">Target Population</label>
-            <select id="targetSelect"></select>
+            <label for="targetInput">Target Population</label>
+            <input type="text" id="targetInput" placeholder="e.g. Spanish_Barcelones">
         </div>
         <div>
             <label for="numMixtures">Number of Mixtures</label>
@@ -70,23 +76,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
     <script>
-        let parsedData = [];
-
-        document.getElementById('csvInput').addEventListener('input', () => {
-            const csv = document.getElementById('csvInput').value;
-            const parsed = Papa.parse(csv, { header: true, dynamicTyping: true });
-            if (parsed.errors.length) return;
-
-            parsedData = parsed.data.filter(row => row.Population);
-            const uniquePopulations = [...new Set(parsedData.map(row => row.Population))];
-
-            const select = document.getElementById('targetSelect');
-            select.innerHTML = uniquePopulations.map(pop => `<option value="${pop}">${pop}</option>`).join('');
-        });
-
         async function runAdmixture() {
             const csv = document.getElementById('csvInput').value;
-            const target = document.getElementById('targetSelect').value;
+            const target = document.getElementById('targetInput').value.trim();
             const numMixtures = parseInt(document.getElementById('numMixtures').value);
             const topN = parseInt(document.getElementById('topN').value);
 
