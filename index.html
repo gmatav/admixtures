@@ -11,12 +11,17 @@
             margin: auto;
             padding: 20px;
         }
-        textarea, select, input[type="number"] {
+        textarea {
             width: 100%;
-            margin-bottom: 20px;
             padding: 10px;
             font-family: monospace;
             font-size: 14px;
+        }
+        #csvInput {
+            height: 400px;
+        }
+        #outputBox {
+            height: 300px;
         }
         button {
             padding: 10px 20px;
@@ -31,6 +36,9 @@
         .options > div {
             flex: 1;
         }
+        .compact-input {
+            width: 80px;
+        }
     </style>
 </head>
 <body>
@@ -43,15 +51,15 @@
     <div class="options">
         <div>
             <label for="targetSelect">Target Population</label>
-            <input type="text" id="targetSelect" placeholder="e.g. Spanish_Barcelones">
+            <select id="targetSelect"></select>
         </div>
         <div>
             <label for="numMixtures">Number of Mixtures</label>
-            <input type="number" id="numMixtures" value="2" min="1" max="5">
+            <input type="number" id="numMixtures" class="compact-input" value="2" min="1" max="5">
         </div>
         <div>
             <label for="topN">Top N Matches</label>
-            <input type="number" id="topN" value="10" min="1">
+            <input type="number" id="topN" class="compact-input" value="10" min="1">
         </div>
     </div>
 
@@ -62,9 +70,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
     <script>
+        let parsedData = [];
+
+        document.getElementById('csvInput').addEventListener('input', () => {
+            const csv = document.getElementById('csvInput').value;
+            const parsed = Papa.parse(csv, { header: true, dynamicTyping: true });
+            if (parsed.errors.length) return;
+
+            parsedData = parsed.data.filter(row => row.Population);
+            const uniquePopulations = [...new Set(parsedData.map(row => row.Population))];
+
+            const select = document.getElementById('targetSelect');
+            select.innerHTML = uniquePopulations.map(pop => `<option value="${pop}">${pop}</option>`).join('');
+        });
+
         async function runAdmixture() {
             const csv = document.getElementById('csvInput').value;
-            const target = document.getElementById('targetSelect').value.trim();
+            const target = document.getElementById('targetSelect').value;
             const numMixtures = parseInt(document.getElementById('numMixtures').value);
             const topN = parseInt(document.getElementById('topN').value);
 
