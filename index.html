@@ -76,6 +76,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
     <script>
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
         async function runAdmixture() {
             const csv = document.getElementById('csvInput').value;
             const target = document.getElementById('targetInput').value.trim();
@@ -97,7 +109,7 @@
                 targetVec = headers.map(h => parseFloat(targetRow[h]));
             } else {
                 try {
-                    targetVec = headers.map(h => parseFloat(target.split(',')[headers.indexOf(h)]));
+                    targetVec = target.split(',').map(v => parseFloat(v.trim()));
                 } catch (e) {
                     alert("Invalid target vector or target not found.");
                     return;
@@ -105,45 +117,52 @@
             }
 
             function distance(v1, v2) {
-                return Math.sqrt(v1.reduce((acc, val, i) => acc + (val - v2[i]) ** 2, 0));
+                let sum = 0;
+                for (let i = 0; i < v1.length; i++) {
+                    const d = v1[i] - v2[i];
+                    sum += d * d;
+                }
+                return Math.sqrt(sum);
             }
 
             function mix(rows, alphas) {
-                const mix = Array(rows[0].length).fill(0);
-                rows.forEach((row, i) => row.forEach((val, j) => mix[j] += val * alphas[i]));
+                const mix = new Array(rows[0].length).fill(0);
+                for (let i = 0; i < rows.length; i++) {
+                    for (let j = 0; j < rows[i].length; j++) {
+                        mix[j] += rows[i][j] * alphas[i];
+                    }
+                }
                 return mix;
             }
 
             const others = data.filter(r => r.Population !== target);
             const vectors = others.map(r => headers.map(h => parseFloat(r[h])));
 
-            let topMatches = [];
-            let worstDist = Infinity;
+            let topMatches = Array(topN).fill({ dist: Infinity });
 
-            for (let i = 0; i < 10000; i++) {
-                const indices = [];
-                while (indices.length < numMixtures) {
-                    const idx = Math.floor(Math.random() * others.length);
-                    if (!indices.includes(idx)) indices.push(idx);
-                }
+            const indexArray = Array.from({ length: vectors.length }, (_, i) => i);
+
+            for (let iter = 0; iter < 10000; iter++) {
+                const indices = shuffle(indexArray.slice()).slice(0, numMixtures);
                 const selectedVecs = indices.map(idx => vectors[idx]);
-                const alphas = Array(numMixtures).fill().map(() => Math.random());
+                const alphas = Array(numMixtures).fill(0).map(() => Math.random());
                 const sum = alphas.reduce((a, b) => a + b, 0);
                 for (let j = 0; j < alphas.length; j++) alphas[j] /= sum;
 
                 const combo = mix(selectedVecs, alphas);
                 const dist = distance(targetVec, combo);
-                if (topMatches.length < topN || dist < worstDist) {
+
+                const worst = topMatches[topN - 1];
+                if (dist < worst.dist) {
                     const names = indices.map(idx => others[idx].Population);
-                    topMatches.push({ dist, names, alphas });
+                    topMatches[topN - 1] = { dist, names, alphas };
                     topMatches.sort((a, b) => a.dist - b.dist);
-                    if (topMatches.length > topN) topMatches.pop();
-                    worstDist = topMatches[topMatches.length - 1].dist;
                 }
             }
 
             let output = `Top ${topN} admixture matches for ${target} with ${numMixtures}-way mixtures:\n`;
             topMatches.forEach((m, i) => {
+                if (!m.names) return;
                 const parts = m.names.map((n, j) => `${(m.alphas[j] * 100).toFixed(2)}% of '${n}'`);
                 output += `${i + 1}: ${parts.join(', ')} → distance: ${m.dist.toFixed(4)}\n`;
             });
