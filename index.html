@@ -118,6 +118,8 @@
             const vectors = others.map(r => headers.map(h => parseFloat(r[h])));
 
             let topMatches = [];
+            let worstDist = Infinity;
+
             for (let i = 0; i < 10000; i++) {
                 const indices = [];
                 while (indices.length < numMixtures) {
@@ -131,10 +133,13 @@
 
                 const combo = mix(selectedVecs, alphas);
                 const dist = distance(targetVec, combo);
-                const names = indices.map(idx => others[idx].Population);
-                topMatches.push({ dist, names, alphas });
-                topMatches.sort((a, b) => a.dist - b.dist);
-                if (topMatches.length > topN) topMatches.length = topN;
+                if (topMatches.length < topN || dist < worstDist) {
+                    const names = indices.map(idx => others[idx].Population);
+                    topMatches.push({ dist, names, alphas });
+                    topMatches.sort((a, b) => a.dist - b.dist);
+                    if (topMatches.length > topN) topMatches.pop();
+                    worstDist = topMatches[topMatches.length - 1].dist;
+                }
             }
 
             let output = `Top ${topN} admixture matches for ${target} with ${numMixtures}-way mixtures:\n`;
