@@ -73,16 +73,23 @@
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
     <script>
         async function runAdmixture() {
-            const csv = document.getElementById('csvInput').value;
-            const target = document.getElementById('targetInput').value.trim();
-            const topN = parseInt(document.getElementById('topN').value);
-            const numMixtures = 2;
+            const csvRaw = document.getElementById('csvInput').value.trim();
+            const lines = csvRaw.split('\n').filter(l => l.trim() !== '');
+            if (lines.length === 0) return alert("Empty input");
 
-            const parsed = Papa.parse(csv, { header: true, dynamicTyping: true });
+            const numColumns = lines[0].split(',').length;
+            const fakeHeader = ['Population'].concat([...Array(numColumns - 1).keys()].map(i => 'f' + i)).join(',');
+            const fullCSV = fakeHeader + '\n' + lines.join('\n');
+
+            const parsed = Papa.parse(fullCSV, { header: true, dynamicTyping: true });
             if (parsed.errors.length) {
                 alert("CSV parsing failed: " + parsed.errors[0].message);
                 return;
             }
+
+            const target = document.getElementById('targetInput').value.trim();
+            const topN = parseInt(document.getElementById('topN').value);
+            const numMixtures = 2;
 
             const data = parsed.data.filter(row => row.Population && Object.values(row).every(v => v !== null && v !== ''));
             const headers = parsed.meta.fields.filter(f => f !== 'Population');
