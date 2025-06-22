@@ -91,13 +91,18 @@
             const data = parsed.data.filter(row => row.Population && Object.values(row).every(v => v !== null && v !== ''));
             const headers = parsed.meta.fields.filter(f => f !== 'Population');
 
+            let targetVec;
             const targetRow = data.find(r => r.Population === target);
-            if (!targetRow) {
-                alert("Target population not found in data.");
-                return;
+            if (targetRow) {
+                targetVec = headers.map(h => parseFloat(targetRow[h]));
+            } else {
+                try {
+                    targetVec = headers.map(h => parseFloat(target.split(',')[headers.indexOf(h)]));
+                } catch (e) {
+                    alert("Invalid target vector or target not found.");
+                    return;
+                }
             }
-
-            const targetVec = headers.map(h => parseFloat(targetRow[h]));
 
             function distance(v1, v2) {
                 return Math.sqrt(v1.reduce((acc, val, i) => acc + (val - v2[i]) ** 2, 0));
