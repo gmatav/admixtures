@@ -60,10 +60,6 @@
             <input type="text" id="targetInput" placeholder="e.g. Spanish_Barcelones">
         </div>
         <div>
-            <label for="numMixtures">Number of Mixtures</label>
-            <input type="number" id="numMixtures" class="compact-input" value="2" min="1" max="5">
-        </div>
-        <div>
             <label for="topN">Top N Matches</label>
             <input type="number" id="topN" class="compact-input" value="10" min="1">
         </div>
@@ -76,23 +72,11 @@
 
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
     <script>
-        function getRandomInt(max) {
-            return Math.floor(Math.random() * max);
-        }
-
-        function shuffle(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-        }
-
         async function runAdmixture() {
             const csv = document.getElementById('csvInput').value;
             const target = document.getElementById('targetInput').value.trim();
-            const numMixtures = parseInt(document.getElementById('numMixtures').value);
             const topN = parseInt(document.getElementById('topN').value);
+            const numMixtures = 2;
 
             const parsed = Papa.parse(csv, { header: true, dynamicTyping: true });
             if (parsed.errors.length) {
@@ -140,27 +124,27 @@
 
             let topMatches = Array(topN).fill({ dist: Infinity });
 
-            const indexArray = Array.from({ length: vectors.length }, (_, i) => i);
+            for (let i = 0; i < vectors.length; i++) {
+                for (let j = i + 1; j < vectors.length; j++) {
+                    const vec1 = vectors[i];
+                    const vec2 = vectors[j];
 
-            for (let iter = 0; iter < 10000; iter++) {
-                const indices = shuffle(indexArray.slice()).slice(0, numMixtures);
-                const selectedVecs = indices.map(idx => vectors[idx]);
-                const alphas = Array(numMixtures).fill(0).map(() => Math.random());
-                const sum = alphas.reduce((a, b) => a + b, 0);
-                for (let j = 0; j < alphas.length; j++) alphas[j] /= sum;
+                    for (let step = 0.05; step <= 0.95; step += 0.05) {
+                        const alphas = [step, 1 - step];
+                        const combo = mix([vec1, vec2], alphas);
+                        const dist = distance(targetVec, combo);
 
-                const combo = mix(selectedVecs, alphas);
-                const dist = distance(targetVec, combo);
-
-                const worst = topMatches[topN - 1];
-                if (dist < worst.dist) {
-                    const names = indices.map(idx => others[idx].Population);
-                    topMatches[topN - 1] = { dist, names, alphas };
-                    topMatches.sort((a, b) => a.dist - b.dist);
+                        const worst = topMatches[topN - 1];
+                        if (dist < worst.dist) {
+                            const names = [others[i].Population, others[j].Population];
+                            topMatches[topN - 1] = { dist, names, alphas };
+                            topMatches.sort((a, b) => a.dist - b.dist);
+                        }
+                    }
                 }
             }
 
-            let output = `Top ${topN} admixture matches for ${target} with ${numMixtures}-way mixtures:\n`;
+            let output = `Top ${topN} admixture matches for ${target} with 2-way mixtures:\n`;
             topMatches.forEach((m, i) => {
                 if (!m.names) return;
                 const parts = m.names.map((n, j) => `${(m.alphas[j] * 100).toFixed(2)}% of '${n}'`);
